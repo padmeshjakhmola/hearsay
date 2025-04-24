@@ -1,6 +1,14 @@
 import { Request, Response, Router } from "express";
-import { downloadMedia } from "./utils/downloadMedia.js";
 import axios from "axios";
+import OpenAI from "openai";
+import { createReadStream, createWriteStream } from "fs";
+import { fetchMediaStream } from "./utils/downloadMediaStream.js";
+import { streamToS3 } from "./utils/streamToS3.js";
+
+import { tmpdir } from "os";
+import { join } from "path";
+import { pipeline } from "stream/promises";
+import { unlink } from "fs/promises";
 
 const router = Router();
 
@@ -10,12 +18,9 @@ const waToken = process.env.AUTHORIZATIONTOKEN!; // WA permanent token
 router.post("/", async (req: Request, res: Response): Promise<any> => {
   try {
     const body_param = await req.body;
-    // console.log("WEBHOOK:-", JSON.stringify(body_param));
 
     try {
       if (body_param.object) {
-        console.log("inside_body_param");
-        // console.log("Aaaaaaaaaaaaaaaaaaaaaaa", body_param.entry[0].changes[0].value.messages[0]);
         if (body_param.entry[0] && body_param.entry[0].changes[0]) {
           let phone_no = body_param.entry[0].changes[0].value.messages[0].from;
 
@@ -26,7 +31,7 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             let message_document_id =
               body_param.entry[0].changes[0].value.messages[0].document.id;
 
-            const { data } = await axios.get(
+            const { data: meta } = await axios.get(
               `https://graph.facebook.com/v20.0/${message_document_id}`,
               {
                 headers: {
@@ -35,13 +40,49 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
               }
             );
 
-            const localPath = await downloadMedia({
-              url: data.url,
-              mime_type: data.mime_type,
-              id: data.id,
+            const ext = (meta.mime_type.split("/")[1] || "bin").replace(
+              "+",
+              "_"
+            );
+
+            const s3Key = `${meta.id}.${ext}`;
+
+            const fbStream = await fetchMediaStream({
+              url: meta.url,
               token: waToken,
             });
-            console.log("saved to:", localPath);
+            const toOpenAI = streamToS3(
+              fbStream,
+              s3Key,
+              meta.mime_type
+            ) as unknown as Uploadable;
+
+            const tmpFile = join(tmpdir(), `${meta.id}.${ext}`);
+
+            await pipeline(fbStream, createWriteStream(tmpFile));
+            // fbStream is consumed and stored on disk temporarary
+
+            // const info = await fileTypeFromFile(tmpFile);
+            // console.log("Detected:", info); // {ext:'mp3', mime:'audio/mpeg'} | undefined
+
+            const fileForOpenAI = createReadStream(tmpFile);
+
+            try {
+              const openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY as string,
+              });
+
+              const { text } = await openai.audio.transcriptions.create({
+                file: fileForOpenAI,
+                model: "whisper-1",
+              });
+
+              console.log("Transcription:", text);
+            } catch (error) {
+              console.error("openai_error:", error);
+            }
+
+            await unlink(tmpFile);
           } else if (message_type === "text") {
             let message =
               body_param.entry[0].changes[0].value.messages[0].text.body;
@@ -64,16 +105,10 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
 });
 router.get("/", async (req: Request, res: Response): Promise<any> => {
   try {
-    console.log("aaaaaaaaaaaaaaaa", req.query);
-
     req.query["hub.mode"] == "subscribe" &&
       req.query["hub.verify_token"] == token;
 
-    // return res.status(200).json(req.query);
-
     res.send(req.query["hub.challenge"]);
-
-    // return res.status(200).json({ message: "data_received", data });
   } catch (error) {
     return res.status(400).json({ error: "error_fetching_data" });
   }

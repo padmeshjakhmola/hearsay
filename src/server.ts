@@ -11,8 +11,6 @@ const port = 3000;
 app.use(express.json());
 app.use(logRequest);
 
-console.log(typeof embeddingRoutes, embeddingRoutes instanceof Router);
-
 const baseRoute = express.Router();
 
 baseRoute.use("/user", userRoute);
