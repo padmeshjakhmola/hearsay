@@ -10,7 +10,7 @@ const waToken = process.env.AUTHORIZATIONTOKEN!; // WA permanent token
 router.post("/", async (req: Request, res: Response): Promise<any> => {
   try {
     const body_param = await req.body;
-    console.log("WEBHOOK:-", JSON.stringify(body_param));
+    // console.log("WEBHOOK:-", JSON.stringify(body_param));
 
     try {
       if (body_param.object) {
@@ -18,11 +18,9 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
         // console.log("Aaaaaaaaaaaaaaaaaaaaaaa", body_param.entry[0].changes[0].value.messages[0]);
         if (body_param.entry[0] && body_param.entry[0].changes[0]) {
           let phone_no = body_param.entry[0].changes[0].value.messages[0].from;
-          // let message = body_param.entry[0].changes[0].value.messages[0].text.body;
+
           let message_type =
             body_param.entry[0].changes[0].value.messages[0].type;
-
-          console.log("all_props:", phone_no, message_type);
 
           if (message_type === "document") {
             let message_document_id =
@@ -44,6 +42,12 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
               token: waToken,
             });
             console.log("saved to:", localPath);
+          } else if (message_type === "text") {
+            let message =
+              body_param.entry[0].changes[0].value.messages[0].text.body;
+            console.log({ messageType: "text", message });
+          } else {
+            console.log({ messageType: message_type, action: "unknown" });
           }
         }
       }
