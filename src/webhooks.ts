@@ -12,12 +12,14 @@ import { pipeline } from "stream/promises";
 import { unlink } from "fs/promises";
 import { generateReply } from "./utils/responseHandler.js";
 import { sendWhatsAppMessage } from "./utils/sendWhatsAppMessage.js";
+import { db } from "./database/drizzle.js";
+import { users } from "./database/schema.js";
 
 const router = Router();
 
 const token = process.env.TOKEN!;
 const waToken = process.env.AUTHORIZATIONTOKEN!;
-const TRANSCRIPTION_THRESHOLD = 6000;
+const TRANSCRIPTION_THRESHOLD = 8000;
 
 router.post("/", async (req: Request, res: Response): Promise<any> => {
   res.status(200).json({ message: "received" }); //for whatsapp api so it do not send multiple messages
@@ -46,8 +48,9 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             );
 
             let message_document_id =
-            message_type === "document" ? 
-              body_param.entry[0].changes[0].value.messages[0].document.id : body_param.entry[0].changes[0].value.messages[0].audio.id
+              message_type === "document"
+                ? body_param.entry[0].changes[0].value.messages[0].document.id
+                : body_param.entry[0].changes[0].value.messages[0].audio.id;
 
             const { data: meta } = await axios.get(
               `https://graph.facebook.com/${version}/${message_document_id}`,
@@ -64,6 +67,20 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             );
 
             const s3Key = `${meta.id}.${ext}`;
+
+            try {
+              await db.insert(users).values({
+                mobileNumber:
+                  body_param.entry[0].changes[0].value.contacts[0].wa_id,
+                type: body_param.entry[0].changes[0].value.messages[0].type,
+                fullName:
+                  body_param.entry[0].changes[0].value.contacts[0].profile
+                    ?.name,
+                file: s3Key,
+              });
+            } catch (error) {
+              console.log("db_error_document", error);
+            }
 
             // Start timing the transcription process
             const transcriptionStartTime = Date.now();
@@ -162,6 +179,20 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             const replyText = generateReply(userText);
 
             await sendWhatsAppMessage(my_phone_no_id, phone_no, replyText);
+
+            try {
+              await db.insert(users).values({
+                mobileNumber:
+                  body_param.entry[0].changes[0].value.contacts[0].wa_id,
+                type: body_param.entry[0].changes[0].value.messages[0].type,
+                fullName:
+                  body_param.entry[0].changes[0].value.contacts[0].profile
+                    ?.name,
+                text: userText,
+              });
+            } catch (error) {
+              console.log("db_error_text", error);
+            }
           } else {
             console.log({ messageType: message_type, action: "unknown" });
 

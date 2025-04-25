@@ -17,7 +17,8 @@ router.post("/search", async (req: Request, res: Response): Promise<any> => {
     if (!Array.isArray(embedding)) throw new Error("embedding is not an array");
 
     const match = await findMostSimilarQuery(embedding);
-    await db.insert(users).values({ text, embedding });
+    // await db.insert(users).values({ text, embedding });
+    await db.insert(users).values({ text });
 
     // console.log("Match:-", match);
 

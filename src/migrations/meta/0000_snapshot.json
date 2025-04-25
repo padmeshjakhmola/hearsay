@@ -1,5 +1,5 @@
 {
-  "id": "860d3999-c9d9-4b72-80d3-19948bbe3d0b",
+  "id": "b1e1248d-1ab8-4c1d-9674-db328a1862b6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -15,6 +15,13 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "text": {
+          "name": "text",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'nil'"
+        },
         "full_name": {
           "name": "full_name",
           "type": "varchar(255)",
@@ -22,11 +29,26 @@
           "notNull": false,
           "default": "'whatsapp_user'"
         },
-        "embedding": {
-          "name": "embedding",
-          "type": "vector(1536)",
+        "type": {
+          "name": "type",
+          "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'nil'"
+        },
+        "file": {
+          "name": "file",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'nil'"
+        },
+        "mobile_number": {
+          "name": "mobile_number",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0000'"
         },
         "created_at": {
           "name": "created_at",

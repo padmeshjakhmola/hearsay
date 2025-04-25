@@ -1,1 +1,0 @@
-ALTER TABLE "users" ADD COLUMN "text" varchar(255) DEFAULT 'no_text';
