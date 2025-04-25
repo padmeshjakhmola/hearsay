@@ -9,6 +9,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { pipeline } from "stream/promises";
 import { unlink } from "fs/promises";
+import { generateReply } from "./utils/responseHandler.js";
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
               url: meta.url,
               token: waToken,
             });
-            
+
             streamToS3(
               fbStream,
               s3Key,
@@ -136,11 +137,46 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
 
             await unlink(tmpFile);
           } else if (message_type === "text") {
-            let message =
+            // let userText =
+            //   body_param.entry[0].changes[0].value.messages[0].text.body;
+
+            let userText =
               body_param.entry[0].changes[0].value.messages[0].text.body;
-            console.log({ messageType: "text", message });
+            const replyText = generateReply(userText);
+
+            await axios.post(
+              `https://graph.facebook.com/${version}/${my_phone_no_id}/messages`,
+              {
+                messaging_product: "whatsapp",
+                to: `${phone_no}`,
+                text: {
+                  body: replyText,
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${waToken}`,
+                },
+              }
+            );
           } else {
             console.log({ messageType: message_type, action: "unknown" });
+
+            await axios.post(
+              `https://graph.facebook.com/${version}/${my_phone_no_id}/messages`,
+              {
+                messaging_product: "whatsapp",
+                to: `${phone_no}`,
+                text: {
+                  body: `⚠️ Oops! I currently support only *audio* messages for transcription and summarization. 🎧\n\nPlease try sending a voice note or audio file. 😊`,
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${waToken}`,
+                },
+              }
+            );
           }
         } else if (status?.status) {
           console.log("user_message_status:", status.status);
