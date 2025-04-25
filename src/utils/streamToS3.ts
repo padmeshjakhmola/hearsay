@@ -19,7 +19,7 @@ export function streamToS3(bodyStream: Readable, key: string, mime: string) {
     .done()
     .catch(console.error);
 
-  console.log("done_in_streamtos3");
+  // console.log("done_in_streamtos3");
 
   return tee;
 }

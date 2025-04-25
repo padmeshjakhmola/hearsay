@@ -14,7 +14,7 @@ export async function fetchMediaStream(opts: {
 
   data.pipe(pt);
 
-  console.log("done_in_downloadMediaStream");
+  // console.log("done_in_downloadMediaStream");
 
   return pt;
 }
