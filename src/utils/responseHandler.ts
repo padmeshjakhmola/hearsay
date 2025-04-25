@@ -89,6 +89,9 @@ export const generateReply = (userText: string): string => {
   } else if (/good evening/.test(userMessage)) {
     replyText =
       "Good evening! 🌙 Let me know if you’ve got any audio to transcribe!";
+  } else if (/good night|kal baat krte h(ai)/.test(userMessage)) {
+    replyText =
+      "Good night! 🌙 Rest well, and feel free to reach out tomorrow if you’ve got any audio you'd like transcribed. Sweet dreams!";
   }
   // Curious / inquisitive messages
   else if (/what can you do|what is this/.test(userMessage)) {

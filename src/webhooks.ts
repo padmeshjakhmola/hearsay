@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import "dotenv/config";
 import axios from "axios";
 import OpenAI from "openai";
 import { createReadStream, createWriteStream } from "fs";
@@ -10,11 +11,13 @@ import { join } from "path";
 import { pipeline } from "stream/promises";
 import { unlink } from "fs/promises";
 import { generateReply } from "./utils/responseHandler.js";
+import { sendWhatsAppMessage } from "./utils/sendWhatsAppMessage.js";
 
 const router = Router();
 
 const token = process.env.TOKEN!;
-const waToken = process.env.AUTHORIZATIONTOKEN!; // WA permanent token
+const waToken = process.env.AUTHORIZATIONTOKEN!;
+const TRANSCRIPTION_THRESHOLD = 6000;
 
 router.post("/", async (req: Request, res: Response): Promise<any> => {
   res.status(200).json({ message: "received" }); //for whatsapp api so it do not send multiple messages
@@ -33,14 +36,20 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             body_param.entry[0].changes[0].value.metadata.phone_number_id;
           let message_type =
             body_param.entry[0].changes[0].value.messages[0].type;
-          const version = "v20.0";
+          const version = process.env.WHATSAPP_API_VERSION as string;
 
           if (message_type === "document") {
+            await sendWhatsAppMessage(
+              my_phone_no_id,
+              phone_no,
+              "🎧 I've received your audio! Starting transcription process... This usually takes a few seconds."
+            );
+
             let message_document_id =
               body_param.entry[0].changes[0].value.messages[0].document.id;
 
             const { data: meta } = await axios.get(
-              `https://graph.facebook.com/v20.0/${message_document_id}`,
+              `https://graph.facebook.com/${version}/${message_document_id}`,
               {
                 headers: {
                   Authorization: `Bearer ${waToken}`,
@@ -54,6 +63,19 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             );
 
             const s3Key = `${meta.id}.${ext}`;
+
+            // Start timing the transcription process
+            const transcriptionStartTime = Date.now();
+            let transcriptionUpdateSent = false;
+
+            const longTranscriptionTimeout = setTimeout(async () => {
+              await sendWhatsAppMessage(
+                my_phone_no_id,
+                phone_no,
+                "⏳ Still processing your audio... This one's taking a bit longer than usual. I'll send you the audio summary as soon as it's ready!"
+              );
+              transcriptionUpdateSent = true;
+            }, TRANSCRIPTION_THRESHOLD);
 
             const fbStream = await fetchMediaStream({
               url: meta.url,
@@ -71,9 +93,6 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             await pipeline(fbStream, createWriteStream(tmpFile));
             // fbStream is consumed and stored on disk temporarary
 
-            // const info = await fileTypeFromFile(tmpFile);
-            // console.log("Detected:", info); // {ext:'mp3', mime:'audio/mpeg'} | undefined
-
             const fileForOpenAI = createReadStream(tmpFile);
 
             try {
@@ -85,6 +104,11 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
                 file: fileForOpenAI,
                 model: "whisper-1",
               });
+
+              clearTimeout(longTranscriptionTimeout);
+
+              const transcriptionTime = Date.now() - transcriptionStartTime;
+              console.log(`Transcription completed in ${transcriptionTime}ms`);
 
               const transcriptionText = transcription.text;
 
@@ -114,9 +138,6 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
                   text: {
                     body: `${summarizedText}`,
                   },
-                  // text: {
-                  //   body: "Message received. Comment out the openai code to get the summary of the voice note.",
-                  // },
                 },
                 {
                   headers: {
@@ -124,58 +145,29 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
                   },
                 }
               );
-
-              // uncomment when want to send data read status to the user.
-              // console.log(
-              //   response.data
-              //     ? "sending_read_status..."
-              //     : "error_occurred_sending_status..."
-              // );
             } catch (error) {
               console.error("openai_error:", error);
+              await sendWhatsAppMessage(
+                my_phone_no_id,
+                phone_no,
+                "❌ Sorry, I couldn't process your audio. Please try sending it again or try with a different audio file."
+              );
             }
 
             await unlink(tmpFile);
           } else if (message_type === "text") {
-            // let userText =
-            //   body_param.entry[0].changes[0].value.messages[0].text.body;
-
             let userText =
               body_param.entry[0].changes[0].value.messages[0].text.body;
             const replyText = generateReply(userText);
 
-            await axios.post(
-              `https://graph.facebook.com/${version}/${my_phone_no_id}/messages`,
-              {
-                messaging_product: "whatsapp",
-                to: `${phone_no}`,
-                text: {
-                  body: replyText,
-                },
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${waToken}`,
-                },
-              }
-            );
+            await sendWhatsAppMessage(my_phone_no_id, phone_no, replyText);
           } else {
             console.log({ messageType: message_type, action: "unknown" });
 
-            await axios.post(
-              `https://graph.facebook.com/${version}/${my_phone_no_id}/messages`,
-              {
-                messaging_product: "whatsapp",
-                to: `${phone_no}`,
-                text: {
-                  body: `⚠️ Oops! I currently support only *audio* messages for transcription and summarization. 🎧\n\nPlease try sending a voice note or audio file. 😊`,
-                },
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${waToken}`,
-                },
-              }
+            await sendWhatsAppMessage(
+              my_phone_no_id,
+              phone_no,
+              `⚠️ Oops! I currently support only *audio* messages for transcription and summarization. 🎧\n\nPlease try sending a voice note or audio file. 😊`
             );
           }
         } else if (status?.status) {
@@ -190,8 +182,6 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
     } catch (error) {
       console.error("error_in_body_parser", error);
     }
-
-    // return res.status(200).json({ message: "data_received", body_param });
   } catch (error) {
     return res
       .status(500)
