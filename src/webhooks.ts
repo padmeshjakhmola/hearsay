@@ -38,7 +38,7 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             body_param.entry[0].changes[0].value.messages[0].type;
           const version = process.env.WHATSAPP_API_VERSION as string;
 
-          if (message_type === "document") {
+          if (message_type === "document" || message_type === "audio") {
             await sendWhatsAppMessage(
               my_phone_no_id,
               phone_no,
@@ -46,7 +46,8 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
             );
 
             let message_document_id =
-              body_param.entry[0].changes[0].value.messages[0].document.id;
+            message_type === "document" ? 
+              body_param.entry[0].changes[0].value.messages[0].document.id : body_param.entry[0].changes[0].value.messages[0].audio.id
 
             const { data: meta } = await axios.get(
               `https://graph.facebook.com/${version}/${message_document_id}`,
