@@ -32,6 +32,22 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
         const message = changes?.value?.messages?.[0];
         const status = changes?.value?.statuses?.[0];
 
+        if (message?.timestamp) {
+          const msgTimestamp = Number(message.timestamp) * 1000;
+          const now = Date.now();
+          const FIFTEEN_MINUTES = 15 * 60 * 1000;
+
+          if (now - msgTimestamp > FIFTEEN_MINUTES) {
+            const istTime = new Date(msgTimestamp).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            });
+            console.log(
+              `⏳ Skipping old message. Timestamp in IST: ${istTime}`
+            );
+            return;
+          }
+        }
+
         if (message?.from) {
           let phone_no = body_param.entry[0].changes[0].value.messages[0].from;
           let my_phone_no_id =
