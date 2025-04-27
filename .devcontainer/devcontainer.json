@@ -1,0 +1,28 @@
+{
+  "name": "hearsay",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "server",
+  "workspaceFolder": "/app",
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "dbaeumer.vscode-eslint",
+        "stuart.unique-window-colors",
+        "bradlc.vscode-tailwindcss",
+        "jasonnutter.search-node-modules",
+        "oderwat.indent-rainbow",
+        "eamodio.gitlens",
+        "PKief.material-icon-theme",
+        "dsznajder.es7-react-js-snippets",
+        "mikestead.dotenv",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      }
+    }
+  }
+}

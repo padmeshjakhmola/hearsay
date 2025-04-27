@@ -1,0 +1,19 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      target: development # for runnung in dev mode ex- npm run start:dev
+
+    volumes:
+      - ~/.ssh:/root/.ssh
+      - ..:/app # Mount the entire workspace
+
+    ports:
+      - "3000:3000" # Expose port 3000 for the app
+    # environment:
+    # - NODE_ENV=development
+    # Set environment variables if needed
+
+    environment:
+      - NODE_ENV=development # or production when needed
