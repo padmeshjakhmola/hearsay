@@ -6,7 +6,7 @@ import embeddingRoutes from "./routes/chat.js";
 import webhook from "./webhooks.js";
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(logRequest);

@@ -13,5 +13,5 @@ EXPOSE 3000
 CMD ["tail", "-f", "/dev/null"]
 
 FROM base AS production
-EXPOSE 3000
-CMD ["npm", "run", "build",  "&&", "npm", "run", "start"]
+EXPOSE 8080
+CMD ["npm", "run", "start"]

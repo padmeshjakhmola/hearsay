@@ -10,10 +10,9 @@ services:
       - ..:/app # Mount the entire workspace
 
     ports:
-      - "3000:3000" # Expose port 3000 for the app
-    # environment:
-    # - NODE_ENV=development
-    # Set environment variables if needed
+      - "3000:3000" # Primary port for development
+      - "8080:8080" # Secondary port for production testing
 
     environment:
-      - NODE_ENV=development # or production when needed
+      - NODE_ENV=development
+      - PORT=3000 # Explicitly set port for development
